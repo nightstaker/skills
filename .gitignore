@@ -1,5 +1,7 @@
 # Self-defined Ignore Patterns for this repository
 pptx
+pro-pptx/node_modules
+pro-pptx/output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
