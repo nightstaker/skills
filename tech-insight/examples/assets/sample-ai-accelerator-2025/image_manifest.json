@@ -1,0 +1,58 @@
+{
+  "slug": "sample-ai-accelerator-2025",
+  "delivery_mode": "link",
+  "note": "This is a link-mode manifest for a demo example. All entries reference remote example.com URLs — no files are downloaded. link_only: true tells the linter to skip the on-disk check (see REQUIREMENT.MD §3.1.1).",
+  "entries": {
+    "p1-hero": {
+      "source_url": "https://example.com/alpha/press/a100-hero.jpg",
+      "caption": "P1 alpha-A100 demo product photo",
+      "link_only": true
+    },
+    "p2-hero": {
+      "source_url": "https://example.com/bravo/press/b2-hero.jpg",
+      "caption": "P2 bravo-B2 demo product photo",
+      "link_only": true
+    },
+    "p3-hero": {
+      "source_url": "https://example.com/charlie/press/c3-hero.jpg",
+      "caption": "P3 charlie-C3 demo product photo",
+      "link_only": true
+    },
+    "p4-hero": {
+      "source_url": "https://example.com/delta/press/d1-hero.jpg",
+      "caption": "P4 delta-D1 demo product photo",
+      "link_only": true
+    },
+    "p5-hero": {
+      "source_url": "https://example.com/echo/press/e5-hero.jpg",
+      "caption": "P5 echo-E5 demo product photo",
+      "link_only": true
+    },
+    "p1-arch": {
+      "source_url": "https://example.com/alpha/whitepaper/arch.png",
+      "caption": "P1 alpha-A100 demo architecture diagram",
+      "link_only": true
+    },
+    "p2-arch": {
+      "source_url": "https://example.com/bravo/whitepaper/arch.png",
+      "caption": "P2 bravo-B2 demo architecture diagram",
+      "link_only": true
+    },
+    "p3-arch": {
+      "source_url": "https://example.com/charlie/whitepaper/arch.png",
+      "caption": "P3 charlie-C3 demo architecture diagram",
+      "link_only": true
+    },
+    "p4-arch": {
+      "source_url": "https://example.com/delta/whitepaper/arch.png",
+      "caption": "P4 delta-D1 demo architecture diagram",
+      "link_only": true
+    },
+    "p5-arch": {
+      "source_url": "https://example.com/echo/whitepaper/arch.png",
+      "caption": "P5 echo-E5 demo architecture diagram",
+      "link_only": true
+    }
+  },
+  "failed": {}
+}

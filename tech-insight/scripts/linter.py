@@ -4,11 +4,16 @@ linter.py — quality gate for tech-insight reports.
 
 Enforces the non-negotiables defined in REQUIREMENT.MD:
 
-1. Universal sourcing — every factual sentence must carry an inline link.
+1. Universal sourcing — every factual sentence AND every factual KCA/KTD cell
+   must carry an inline link.
 2. Visual coverage — required image slots must be present, captioned, and sourced.
-3. Structure integrity — Type A six-section / Type B five-stage + closed loop.
+3. Structure integrity — Type A six-section / Type B five-stage + closed loop /
+   Type C teardown seven-section.
 4. Implication actionability — banned filler phrases.
 5. Hallucination guard — specific numbers / product codes / quotes without a source.
+6. Sample integrity — Type A Per-Product Profile must have ≥ top_n data rows.
+7. Asset provenance — every file in assets/<slug>/ must appear in image_manifest.json
+   entries and every manifest entry must correspond to a real file on disk.
 
 Exit code:
   0 — clean
@@ -16,6 +21,9 @@ Exit code:
 
 Usage:
   python linter.py reports/foo.md --assets assets/foo/ --type A
+  python linter.py reports/foo.md --assets assets/foo/ --type A --top-n 4
+  python linter.py reports/foo.md --assets assets/foo/ --type B
+  python linter.py reports/foo.md --assets assets/foo/ --type C
 """
 
 from __future__ import annotations
@@ -60,6 +68,16 @@ TYPE_B_REQUIRED_SECTIONS = [
     ("Key Technology Decomposition", "Key Technology Decomposition (§3)"),
     ("Trend Prediction", "Trend Prediction (§4)"),
     ("Closed Loop", "Closed Loop (§5)"),
+    ("Implication", "Implication (§6)"),
+    ("Sources", "Sources (§7)"),
+]
+
+TYPE_C_REQUIRED_SECTIONS = [
+    ("Product Profile", "Product Profile (§1)"),
+    ("Architecture Decomposition", "Architecture Decomposition (§2)"),
+    ("Key Technical Metrics", "Key Technical Metrics (§3)"),
+    ("Moat Analysis", "Moat Analysis (§4)"),
+    ("Weakness", "Weakness / Risk Analysis (§5)"),
     ("Implication", "Implication (§6)"),
     ("Sources", "Sources (§7)"),
 ]
@@ -141,12 +159,148 @@ def check_banned_phrases(text: str, errors: list[str]) -> None:
 
 
 def check_structure(text: str, report_type: str, errors: list[str]) -> None:
-    required = (
-        TYPE_A_REQUIRED_SECTIONS if report_type == "A" else TYPE_B_REQUIRED_SECTIONS
-    )
+    required = {
+        "A": TYPE_A_REQUIRED_SECTIONS,
+        "B": TYPE_B_REQUIRED_SECTIONS,
+        "C": TYPE_C_REQUIRED_SECTIONS,
+    }[report_type]
     for needle, label in required:
         if needle not in text:
             errors.append(f"missing required section: {label} (search key: '{needle}')")
+
+
+def _extract_section(text: str, heading_needle: str) -> tuple[int, int] | None:
+    """Return (start_line_idx, end_line_idx) of a markdown section whose
+    heading line contains `heading_needle`. The section ends at the next
+    heading of the same or higher level, or at EOF."""
+    lines = text.splitlines()
+    start = None
+    start_level = 0
+    for i, line in enumerate(lines):
+        m = re.match(r"^(#+)\s+(.*)$", line)
+        if m and heading_needle in m.group(2):
+            start = i
+            start_level = len(m.group(1))
+            break
+    if start is None:
+        return None
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        m = re.match(r"^(#+)\s+", lines[j])
+        if m and len(m.group(1)) <= start_level:
+            end = j
+            break
+    return (start, end)
+
+
+def _tables_in_range(text: str, start: int, end: int) -> list[tuple[int, list[str]]]:
+    """Return [(first_data_line_idx, data_rows), ...] for every pipe-table in
+    the given line range. A pipe-table is detected by a header row followed
+    immediately by a separator row of the form `| --- | --- | ...`."""
+    lines = text.splitlines()
+    out: list[tuple[int, list[str]]] = []
+    i = start
+    while i < end - 1:
+        line = lines[i]
+        nxt = lines[i + 1] if i + 1 < end else ""
+        if line.strip().startswith("|") and re.match(r"^\s*\|?\s*:?-{2,}", nxt.strip()):
+            data_start = i + 2
+            rows: list[str] = []
+            j = data_start
+            while j < end and lines[j].strip().startswith("|"):
+                rows.append(lines[j])
+                j += 1
+            out.append((data_start, rows))
+            i = j
+        else:
+            i += 1
+    return out
+
+
+def _split_cells(row: str) -> list[str]:
+    row = row.strip()
+    if row.startswith("|"):
+        row = row[1:]
+    if row.endswith("|"):
+        row = row[:-1]
+    return [c.strip() for c in row.split("|")]
+
+
+def check_table_cell_sourcing(text: str, errors: list[str]) -> None:
+    """KCA Matrix and KTD Comparison cells must carry inline sources for any
+    cell that asserts a fact (contains a number, unit, proper noun, or quote).
+    Pure placeholder cells ("…", "N/A", "未公开") are allowed."""
+    for needle in ("KCA Matrix", "KTD Comparison"):
+        rng = _extract_section(text, needle)
+        if not rng:
+            continue
+        start, end = rng
+        for data_start, rows in _tables_in_range(text, start, end):
+            for offset, row in enumerate(rows):
+                cells = _split_cells(row)
+                # first cell is the row label; skip it from sourcing requirement
+                for col_idx, cell in enumerate(cells[1:], start=1):
+                    stripped = cell.strip()
+                    if not stripped or stripped in {"…", "...", "N/A", "-", "未公开", "—"}:
+                        continue
+                    if not is_factual(stripped):
+                        continue
+                    if not INLINE_LINK.search(stripped):
+                        line_no = data_start + offset + 1
+                        preview = stripped[:60].replace("\n", " ")
+                        errors.append(
+                            f"[L{line_no}] {needle} cell (col {col_idx}) lacks inline source: {preview}"
+                        )
+
+
+def check_sample_rows(text: str, report_type: str, top_n: int, errors: list[str]) -> None:
+    """Type A only: Per-Product Profile must have ≥ top_n data rows."""
+    if report_type != "A":
+        return
+    rng = _extract_section(text, "Per-Product Profile")
+    if not rng:
+        return
+    start, end = rng
+    tables = _tables_in_range(text, start, end)
+    if not tables:
+        errors.append("Per-Product Profile section has no data table")
+        return
+    # Pick the first table in the section.
+    _, rows = tables[0]
+    if len(rows) < top_n:
+        errors.append(
+            f"Per-Product Profile has {len(rows)} rows; --top-n requires {top_n}"
+        )
+
+
+def check_asset_provenance(assets_dir: Path, errors: list[str]) -> None:
+    """Every file in assets_dir (except image_manifest.json) must appear in
+    manifest.entries; every manifest.entries key must be a real file on disk,
+    UNLESS the entry has link_only: true (link-mode delivery, see
+    REQUIREMENT.MD §3.1.1)."""
+    if not assets_dir.exists():
+        errors.append(f"assets directory not found: {assets_dir}")
+        return
+    manifest_path = assets_dir / "image_manifest.json"
+    if not manifest_path.exists():
+        return  # already reported by check_visuals
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return  # already reported by check_visuals
+    entries = manifest.get("entries") or {}
+    on_disk = {
+        p.name
+        for p in assets_dir.iterdir()
+        if p.is_file() and p.name != "image_manifest.json"
+    }
+    expected_on_disk = {
+        fname for fname, info in entries.items() if not info.get("link_only")
+    }
+    for fname in sorted(on_disk - set(entries.keys())):
+        errors.append(f"asset {fname} has no manifest entry")
+    for fname in sorted(expected_on_disk - on_disk):
+        errors.append(f"manifest entry {fname} has no file on disk")
 
 
 def check_visuals(
@@ -177,15 +331,22 @@ def check_visuals(
     text_lower = text.lower()
     if report_type == "A":
         for n in range(1, top_n + 1):
-            if f"p{n}-hero" not in text_lower and f"p{n} 产品图" not in text:
+            if f"p{n}-hero" not in text_lower and f"P{n} 产品图" not in text:
                 errors.append(f"Type A: missing product photo for P{n}")
-            if f"p{n}-arch" not in text_lower and f"p{n} 架构" not in text:
+            if f"p{n}-arch" not in text_lower and f"P{n} 架构" not in text:
                 errors.append(f"Type A: missing architecture/teardown image for P{n}")
-    else:
+    elif report_type == "B":
         if "scene" not in text_lower and "场景图" not in text:
             errors.append("Type B: missing Scene Anchor image")
         if "tech-1-arch" not in text_lower and "关键技术 1 原理" not in text:
             errors.append("Type B: missing key technology 1 principle diagram")
+    elif report_type == "C":
+        if "hero" not in text_lower and "产品图" not in text:
+            errors.append("Type C: missing product hero photo")
+        if "arch" not in text_lower and "架构图" not in text:
+            errors.append("Type C: missing architecture / teardown diagram")
+        if "die" not in text_lower and "pcb" not in text_lower and "dieshot" not in text_lower and "die shot" not in text_lower and "内部" not in text:
+            errors.append("Type C: missing die shot / PCB / internal teardown image")
 
     # Manifest cross-check
     manifest_path = assets_dir / "image_manifest.json"
@@ -241,7 +402,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("report", help="Path to the report .md")
     p.add_argument("--assets", required=True, help="Path to assets/<slug>/ dir")
-    p.add_argument("--type", choices=["A", "B"], required=True, help="Report type")
+    p.add_argument("--type", choices=["A", "B", "C"], required=True, help="Report type")
     p.add_argument(
         "--top-n",
         type=int,
@@ -263,7 +424,10 @@ def main() -> int:
     errors: list[str] = []
     check_structure(text, args.type, errors)
     check_sourcing(text, errors)
+    check_table_cell_sourcing(text, errors)
+    check_sample_rows(text, args.type, args.top_n, errors)
     check_visuals(text, assets_dir, args.type, errors, top_n=args.top_n)
+    check_asset_provenance(assets_dir, errors)
     check_banned_phrases(text, errors)
     if args.type == "B":
         check_closed_loop(text, errors)

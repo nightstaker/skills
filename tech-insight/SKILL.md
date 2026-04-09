@@ -16,8 +16,11 @@ Read [REQUIREMENT.MD](REQUIREMENT.MD) for the full specification. This file is t
 |----------|-------|
 | **Type A** — Existing tech, global TOP 5 horizontal benchmark | [workflows/existing-tech-top5.md](workflows/existing-tech-top5.md) |
 | **Type B** — Future trend insight with closed-loop reasoning | [workflows/future-trend.md](workflows/future-trend.md) |
+| **Type C** — Single-product deep teardown & decomposition | [workflows/single-product-teardown.md](workflows/single-product-teardown.md) |
 | Output template — Type A | [templates/type-a-top5.md](templates/type-a-top5.md) |
 | Output template — Type B | [templates/type-b-trend.md](templates/type-b-trend.md) |
+| Output template — Type C | [templates/type-c-teardown.md](templates/type-c-teardown.md) |
+| Worked example (Type A)  | [examples/sample-ai-accelerator-2025.md](examples/sample-ai-accelerator-2025.md) |
 | Linter (source + visual + structure QA) | [scripts/linter.py](scripts/linter.py) |
 | Visual asset downloader | [scripts/visual_collector.py](scripts/visual_collector.py) |
 
@@ -25,15 +28,18 @@ Read [REQUIREMENT.MD](REQUIREMENT.MD) for the full specification. This file is t
 
 ## Scenario Detection
 
-Before starting, classify the request into Type A or Type B. Ask the user if ambiguous.
+Before starting, classify the request into Type A / B / C. Ask the user if ambiguous.
 
 1. **Is the user asking about a category of products that already exist on the market?**
    - Yes → **Type A** (TOP 5 horizontal benchmark). Proceed to [workflows/existing-tech-top5.md](workflows/existing-tech-top5.md).
 
-2. **Is the user asking about where a technology / scenario is headed in the next 1–3 years?**
+2. **Is the user asking where a technology / scenario is headed in the next 1–3 years?**
    - Yes → **Type B** (Future trend, closed-loop). Proceed to [workflows/future-trend.md](workflows/future-trend.md).
 
-3. **Both?** Run Type A first to anchor the present, then Type B to extrapolate. Cross-link the two reports.
+3. **Is the user asking for a deep-dive teardown of ONE specific product/technology?**
+   - Yes → **Type C** (Single-product deep teardown). Proceed to [workflows/single-product-teardown.md](workflows/single-product-teardown.md).
+
+4. **Combinations?** Type A → Type C (benchmark first, then drill into the leader) or Type A → Type B (present benchmark, then extrapolate). Cross-link the reports.
 
 If the request is too narrow ("just look up spec X of product Y"), tell the user this skill is overkill and use a plain web search instead.
 
@@ -91,7 +97,10 @@ For every task, follow this sequence. Do not skip steps — each guards a qualit
      "needs continued attention" filler.
 
 7. QA — LINTER (REQUIRED, never deliver without it)
-   python scripts/linter.py <report.md> --assets assets/<slug>/
+   python scripts/linter.py <report.md> --assets assets/<slug>/ --type A      # Type A
+   python scripts/linter.py <report.md> --assets assets/<slug>/ --type B      # Type B
+   python scripts/linter.py <report.md> --assets assets/<slug>/ --type C      # Type C (single-product teardown)
+   # Type A may degrade to TOP N via --top-n <3..5> when the category is legitimately narrow.
    The linter will reject the report if any of the following fail:
    - Universal sourcing: any factual sentence without an inline URL/DOI/patent number.
    - Visual coverage: any required image slot empty or missing source caption.
