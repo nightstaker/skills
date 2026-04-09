@@ -6,7 +6,9 @@ Use this workflow when the user asks for a deep-dive technical decomposition of 
 - "帮我出一份 <chip/device> 的 teardown"
 - "<technology> 到底是怎么实现的，有哪些壁垒"
 
-The report must be evidence-driven and visually anchored — no marketing summaries, no rewritten press releases. Read [../REQUIREMENT.MD](../REQUIREMENT.MD) for the universal sourcing and visual-evidence rules. Output template: [../templates/type-c-teardown.md](../templates/type-c-teardown.md).
+**Reader profile** (see [../REQUIREMENT.MD](../REQUIREMENT.MD) §1.3): senior domain experts (Chief Architect / Fellow / tech DD leads) + domain investors (PE tech DD / VC partners). The report must reach microarchitectural-primitive depth, cite specific foundry node variants, ship full benchmark methodology, back every moat claim with a patent number or SEC filing, and close with an investor-grade appendix.
+
+The report must be evidence-driven and visually anchored — no marketing summaries, no rewritten press releases. Read [../REQUIREMENT.MD](../REQUIREMENT.MD) §§1.3–1.4 and §2.3–2.4 for the full depth rules. Output template: [../templates/type-c-teardown.md](../templates/type-c-teardown.md).
 
 ---
 
@@ -102,11 +104,24 @@ Do NOT invent risks. If a risk category has no public evidence, write "无公开
 
 ## Stage 6 — Implication (So what?)
 
-Close the report with a concrete reader-facing action set. Forbidden phrases: "需要持续关注", "值得观察". Concrete moves only.
+Close the report with a concrete reader-facing action set. Forbidden phrases: "需要持续关注", "值得观察", "未来可期", "业界领先", "先进架构", "生态完善", "industry-leading", "best-in-class", "revolutionary", "cutting-edge". Concrete moves only.
 
 - Which engineering choice from this product is worth directly copying / licensing?
 - Which weakness creates a viable differentiation opening for our side?
 - What contract / supply / talent action should we take this quarter to respond?
+
+---
+
+## Stage 7 — Investor Appendix (MANDATORY)
+
+Every Type C teardown must ship an investor-grade appendix (four sub-blocks, see [../REQUIREMENT.MD](../REQUIREMENT.MD) §2.4):
+
+- **Unit economics** — ASP, BoM / wafer cost estimate, gross margin, CapEx intensity
+- **Customer concentration** — top-3 customer share, named design wins, switching cost
+- **Capacity & supply** — front-end (foundry wafer starts), back-end (CoWoS / FOPLP), HBM / substrate allocations, 24-month bottleneck
+- **Regulatory & geopolitical** — specific rule citations (15 CFR 744 / BIS ECCN / EAR / CFIUS / SAMR), regional market access, geopolitical exposure
+
+Empty sub-blocks must carry an explicit "**无公开披露 — 原因：…**" justification. Do NOT leave blank.
 
 ---
 
@@ -118,9 +133,14 @@ python scripts/linter.py reports/<slug>.md --assets assets/<slug>/ --type C
 
 The linter rejects the report if:
 
-- Any of the seven required sections is missing.
+- Any of the seven required sections is missing, or the Investor Appendix is missing.
 - Product hero photo, architecture diagram, or die-shot / PCB / internal image is missing or uncaptioned.
-- Any factual sentence or KCA/KTD-style metric cell lacks an inline source.
+- Any factual sentence or Key Technical Metrics cell lacks an inline source.
+- Any banned shallow phrase (业界领先 / 先进架构 / 生态完善 / industry-leading …) appears anywhere.
+- Bare process node numbers (`3nm` / `5nm` / `7nm`) appear without a foundry variant (TSMC N3E / Samsung SF4X / Intel 18A).
+- Key Technical Metrics section misses benchmark methodology keywords (`batch` / `seqlen` / `precision` / `FP8–INT8` / `测试条件`).
+- Moat / 壁垒 section is missing a patent number or SEC / HKEX filing reference.
+- Investor Appendix is missing any of the four sub-block keyword families.
 - The Implication contains banned filler phrases.
 - Any asset file has no `image_manifest.json` entry, or vice versa.
 

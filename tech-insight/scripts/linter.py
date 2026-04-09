@@ -1,19 +1,31 @@
 #!/usr/bin/env python3
 """
-linter.py — quality gate for tech-insight reports.
+linter.py — quality gate for tech-insight reports (v2.0 — depth edition).
 
 Enforces the non-negotiables defined in REQUIREMENT.MD:
 
 1. Universal sourcing — every factual sentence AND every factual KCA/KTD cell
    must carry an inline link.
 2. Visual coverage — required image slots must be present, captioned, and sourced.
-3. Structure integrity — Type A six-section / Type B five-stage + closed loop /
-   Type C teardown seven-section.
+3. Structure integrity — Type A eight-section / Type B six-stage + investor
+   appendix / Type C eight-section (all including the mandatory Investor
+   Appendix from REQUIREMENT.MD §2.4).
 4. Implication actionability — banned filler phrases.
 5. Hallucination guard — specific numbers / product codes / quotes without a source.
 6. Sample integrity — Type A Per-Product Profile must have ≥ top_n data rows.
 7. Asset provenance — every file in assets/<slug>/ must appear in image_manifest.json
    entries and every manifest entry must correspond to a real file on disk.
+8. Depth gates (v2.0):
+   - Banned shallow phrases (§1.4.6): 业界领先 / 先进架构 / 生态完善 /
+     industry-leading / best-in-class / revolutionary / cutting-edge …
+   - Process-node foundry variant: bare "3nm" / "5nm" etc. must be accompanied
+     by a TSMC / Samsung / Intel node variant in the same table or nearby text.
+   - Benchmark methodology keywords: KTD / Key Technical Metrics sections must
+     mention batch / seqlen / precision / test-condition vocabulary.
+   - Moat legal evidence: Moat / 壁垒 sections must carry ≥1 patent number
+     (US/CN/EP/WO) or ≥1 SEC / HKEX filing reference.
+   - Investor appendix: must cover unit economics + customer concentration +
+     capacity + regulatory keyword families.
 
 Exit code:
   0 — clean
@@ -43,23 +55,120 @@ IMAGE_LINE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 CAPTION_LINE = re.compile(r"^\s*\*图\s*\d+[:：][^*]*—\s*来源[:：].*\*\s*$")
 NUMBER = re.compile(r"\b\d[\d.,]*\s*(%|nm|GB|TB|MB|TFLOPS|TOPS|W|GHz|MHz|FPS|ms|μs|us|ns|tokens|MAU|DAU|USD|RMB|\$|￥|元|亿|万)?")
 QUOTE = re.compile(r"[\"\u201c][^\"\u201d]{6,}[\"\u201d]")
+
+# Existing filler phrases + new shallow phrases from REQUIREMENT.MD §1.4.6.
 BANNED_PHRASES = [
+    # v1 fillers
     "需要持续关注",
     "值得观察",
     "未来可期",
     "拭目以待",
     "前景广阔",
     "大有可为",
+    # v2 shallow phrases (CN)
+    "业界领先",
+    "行业领先",
+    "性能领先",
+    "先进架构",
+    "先进工艺",
+    "生态完善",
+    "技术成熟",
+    "市场广阔",
+    "空间巨大",
+    "潜力巨大",
+    "引领行业",
+    "颠覆式创新",
+    "革命性突破",
+    "全球首创",
+    "具有广阔前景",
+    "有望成为",
+    "将会改变",
 ]
+
+# Banned English shallow phrases (case-insensitive — see check_banned_phrases).
+BANNED_PHRASES_EN_CI = [
+    "industry-leading",
+    "industry leading",
+    "best-in-class",
+    "best in class",
+    "revolutionary",
+    "game-changing",
+    "game changing",
+    "cutting-edge",
+    "cutting edge",
+    "paradigm shift",
+    "paradigm-shift",
+]
+
+# Bare process node pattern — e.g. "3nm", "5 nm", "7nm process".
+# Flagged unless the same section names a foundry variant.
+PROCESS_NODE_BARE = re.compile(r"\b(?<![A-Za-z])(3|4|5|7|10|14)\s*nm\b", re.IGNORECASE)
+
+# Known foundry-variant tokens that make a process-node claim valid.
+FOUNDRY_VARIANTS = [
+    # TSMC
+    "TSMC", "N3E", "N3P", "N3B", "N3", "N4P", "N4X", "N4",
+    "N5P", "N5", "N6", "N7P", "N7",
+    # Samsung
+    "Samsung", "SF3", "SF3P", "SF4", "SF4X", "SF4P", "SF5", "SF7",
+    # Intel
+    "Intel 18A", "18A", "20A", "Intel 3", "Intel 4", "Intel 7",
+    # Other foundries
+    "SMIC", "GlobalFoundries", "GF 12", "GF 14",
+]
+
+# Benchmark methodology required vocabulary — at least one term from EACH
+# group must appear in KTD / Key Technical Metrics sections.
+BENCH_METHODOLOGY_GROUPS = [
+    ["batch", "Batch"],
+    ["seqlen", "sequence length", "seq-len", "上下文长度", "context length"],
+    ["precision", "FP8", "FP16", "BF16", "INT8", "INT4", "W4A16", "W8A8"],
+    ["methodology", "测试条件", "test condition", "benchmark condition", "测试方法"],
+]
+
+# Patent number patterns (independent claim grounding).
+PATENT_NUMBER_RE = re.compile(
+    r"\b(?:US\d{7,}|CN\d{7,}|EP\d{7,}|WO\d{4}[/-]\d{5,})\b"
+)
+
+# SEC / HKEX / Tokyo filing indicators.
+FILING_INDICATORS = [
+    "10-K", "10-Q", "20-F", "8-K", "S-1", "F-1", "DEF 14A",
+    "HKEX filing", "港交所", "招股书", "Prospectus", "prospectus",
+    "SEC filing",
+]
+
+# Investor Appendix keyword families — one hit per family required in the
+# Investor Appendix section.
+INVESTOR_APPENDIX_FAMILIES = {
+    "Unit Economics": [
+        "ASP", "BoM", "gross margin", "毛利率", "毛利", "单位经济性",
+        "wafer cost", "CapEx", "ARPU", "单位成本",
+    ],
+    "Customer Concentration": [
+        "Top-3 客户", "Top 3 客户", "客户集中度", "design win",
+        "design-win", "客户份额", "top-3 customer",
+    ],
+    "Capacity & Supply": [
+        "产能", "CoWoS", "FOPLP", "HBM", "wafer start", "substrate",
+        "ABF", "fab slot", "capacity",
+    ],
+    "Regulatory & Geopolitical": [
+        "出口管制", "15 CFR", "BIS", "ECCN", "EAR", "CFIUS", "SAMR",
+        "CMA", "监管", "Chips Act", "export control",
+    ],
+}
 
 TYPE_A_REQUIRED_SECTIONS = [
     ("品类边界", "Category boundary block (§0)"),
     ("Per-Product Profile", "Per-Product Profile table (§1)"),
     ("KCA Matrix", "KCA Matrix (§2)"),
     ("KTD Comparison", "KTD Comparison (§3)"),
-    ("Cross-Product Insight", "Cross-Product Insight (§4)"),
-    ("Implication", "Implication (§5)"),
-    ("Sources", "Sources (§6)"),
+    ("Moat", "Moat Analysis (§4)"),
+    ("Cross-Product Insight", "Cross-Product Insight (§5)"),
+    ("Implication", "Implication (§6)"),
+    ("Investor Appendix", "Investor Appendix (§7)"),
+    ("Sources", "Sources (§8)"),
 ]
 
 TYPE_B_REQUIRED_SECTIONS = [
@@ -69,7 +178,8 @@ TYPE_B_REQUIRED_SECTIONS = [
     ("Trend Prediction", "Trend Prediction (§4)"),
     ("Closed Loop", "Closed Loop (§5)"),
     ("Implication", "Implication (§6)"),
-    ("Sources", "Sources (§7)"),
+    ("Investor Appendix", "Investor Appendix (§7)"),
+    ("Sources", "Sources (§8)"),
 ]
 
 TYPE_C_REQUIRED_SECTIONS = [
@@ -79,7 +189,8 @@ TYPE_C_REQUIRED_SECTIONS = [
     ("Moat Analysis", "Moat Analysis (§4)"),
     ("Weakness", "Weakness / Risk Analysis (§5)"),
     ("Implication", "Implication (§6)"),
-    ("Sources", "Sources (§7)"),
+    ("Investor Appendix", "Investor Appendix (§7)"),
+    ("Sources", "Sources (§8)"),
 ]
 
 
@@ -155,7 +266,91 @@ def check_sourcing(text: str, errors: list[str]) -> None:
 def check_banned_phrases(text: str, errors: list[str]) -> None:
     for ph in BANNED_PHRASES:
         if ph in text:
-            errors.append(f"banned filler phrase found: '{ph}'")
+            errors.append(f"banned shallow/filler phrase found: '{ph}'")
+    text_lower = text.lower()
+    for ph in BANNED_PHRASES_EN_CI:
+        if ph.lower() in text_lower:
+            errors.append(f"banned shallow English phrase found: '{ph}'")
+
+
+def check_process_node_depth(text: str, errors: list[str]) -> None:
+    """Any mention of a bare process node (3nm / 5nm / 7nm) must be accompanied
+    by a named foundry variant somewhere in the report. REQUIREMENT.MD §1.4.2."""
+    if not PROCESS_NODE_BARE.search(text):
+        return
+    if not any(variant in text for variant in FOUNDRY_VARIANTS):
+        errors.append(
+            "process node mentioned but no foundry variant found "
+            "(expected TSMC N3E / Samsung SF4X / Intel 18A / N4P / ...)"
+        )
+
+
+def check_benchmark_methodology(text: str, report_type: str, errors: list[str]) -> None:
+    """The KTD Comparison / Key Technical Metrics section must mention the full
+    benchmark methodology keyword families: batch + seqlen + precision +
+    test-condition. REQUIREMENT.MD §1.4.3."""
+    section_needle = {
+        "A": "KTD Comparison",
+        "B": "Key Technology Decomposition",
+        "C": "Key Technical Metrics",
+    }[report_type]
+    rng = _extract_section(text, section_needle)
+    if not rng:
+        return  # structure check already reported
+    start, end = rng
+    section_text = "\n".join(text.splitlines()[start:end])
+    section_lower = section_text.lower()
+    missing: list[str] = []
+    for group in BENCH_METHODOLOGY_GROUPS:
+        if not any(term.lower() in section_lower for term in group):
+            missing.append(" / ".join(group))
+    if missing:
+        errors.append(
+            f"{section_needle} section missing benchmark methodology keywords: "
+            + "; ".join(missing)
+        )
+
+
+def check_moat_legal_evidence(text: str, report_type: str, errors: list[str]) -> None:
+    """The Moat / 壁垒 section must contain at least one patent number
+    (US/CN/EP/WO) or SEC / HKEX filing reference. REQUIREMENT.MD §1.4.4."""
+    # Type A + Type C have explicit Moat sections; Type B embeds moat in Key
+    # Technology Decomposition (the patent-wall requirement from §2.2).
+    needle = {
+        "A": "Moat",
+        "B": "Key Technology Decomposition",
+        "C": "Moat Analysis",
+    }[report_type]
+    rng = _extract_section(text, needle)
+    if not rng:
+        return
+    start, end = rng
+    section_text = "\n".join(text.splitlines()[start:end])
+    if PATENT_NUMBER_RE.search(section_text):
+        return
+    if any(ind in section_text for ind in FILING_INDICATORS):
+        return
+    errors.append(
+        f"{needle} section lacks legal evidence: needs ≥1 patent number "
+        "(US/CN/EP/WO) or ≥1 SEC / HKEX filing reference"
+    )
+
+
+def check_investor_appendix(text: str, errors: list[str]) -> None:
+    """The Investor Appendix section must cover all four keyword families:
+    unit economics, customer concentration, capacity & supply, regulatory.
+    REQUIREMENT.MD §2.4."""
+    rng = _extract_section(text, "Investor Appendix")
+    if not rng:
+        return  # structure check already reported
+    start, end = rng
+    section_text = "\n".join(text.splitlines()[start:end])
+    for family, keywords in INVESTOR_APPENDIX_FAMILIES.items():
+        if not any(kw in section_text for kw in keywords):
+            errors.append(
+                f"Investor Appendix missing '{family}' keyword family "
+                f"(expected one of: {', '.join(keywords[:6])}…)"
+            )
 
 
 def check_structure(text: str, report_type: str, errors: list[str]) -> None:
@@ -429,6 +624,10 @@ def main() -> int:
     check_visuals(text, assets_dir, args.type, errors, top_n=args.top_n)
     check_asset_provenance(assets_dir, errors)
     check_banned_phrases(text, errors)
+    check_process_node_depth(text, errors)
+    check_benchmark_methodology(text, args.type, errors)
+    check_moat_legal_evidence(text, args.type, errors)
+    check_investor_appendix(text, errors)
     if args.type == "B":
         check_closed_loop(text, errors)
         check_falsifiability(text, errors)

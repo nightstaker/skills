@@ -2,7 +2,21 @@
 
 Use this workflow when the user asks for a competitive landscape, technology benchmark, or product teardown across an existing product category. Goal: produce a horizontal insight that maps the entire top tier of the category, not a single-product writeup.
 
+**Reader profile** (see [../REQUIREMENT.MD](../REQUIREMENT.MD) §1.3): senior domain experts + domain investors. Every paragraph must pass the expert "re-ask-one-more-layer" test AND the investor due-diligence test. Shallow content is rejected before the sourcing rule even runs.
+
 Read [../REQUIREMENT.MD](../REQUIREMENT.MD) §2.1 before starting. The output template is [../templates/type-a-top5.md](../templates/type-a-top5.md).
+
+---
+
+## Step 0 — Reader Lock-In
+
+Before writing anything, commit the three-question filter for this report:
+
+- **What does this tell the expert** (Chief Architect / Fellow) that they don't already know from datasheets alone?
+- **What does this change for the investor** (VC / PE / 产业资本) — does it alter the valuation, bet, or risk score for any named vendor?
+- **What would falsify the report's central claims** if a new paper, filing, or benchmark appeared tomorrow?
+
+If any section fails all three at draft time, rewrite it or delete it.
 
 ---
 
@@ -89,22 +103,54 @@ Build a 5-column matrix. **Each cell** must:
 
 1. State a fact, not a slogan.
 2. Carry an inline source `[text](URL)`.
-3. Distinguish marketing claims from verifiable engineering facts (mark marketing claims as "厂商宣称").
+3. Distinguish marketing claims from verifiable engineering facts (mark marketing claims as "厂商宣称" and pair each marketing claim with at least one independent benchmark or teardown — unmatched marketing rows are treated as unverified).
+4. Every quoted number carries its unit and its measurement condition.
 
 ---
 
 ## Step 6 — KTD Comparison (Quantitative Tech Decomposition)
 
-For the technologies that drive the KCA Matrix, build a second table with quantitative deltas:
+The KTD table is the single densest piece of the report. It must cover at least the following rows — do not stop at marketing-layer abstractions:
 
-| Technical metric | P1 | P2 | P3 | P4 | P5 | Source |
-|---|---|---|---|---|---|---|
-| Process node | 4nm | 5nm | 3nm | 7nm | 4nm | … |
-| Memory bandwidth (GB/s) | … | … | … | … | … | … |
-| Interconnect | NVLink | CXL | UCIe | PCIe5 | proprietary | … |
-| FP8 efficiency | … | … | … | … | … | … |
+| Row | Required depth |
+|---|---|
+| Process node | Foundry variant (TSMC N3E / Samsung SF4X / Intel 18A / TSMC N4P …) — never bare "3nm" |
+| Packaging | CoWoS-L / FOPLP / EMIB / 2.5D / 3D stacking |
+| Core microarch units | Named unit + count + generation (e.g., SM Gen5 ×144) |
+| Cache / SRAM | L0/L1/L2/LLC sizes per unit + register file size |
+| HBM | Gen + stack layers + capacity + bandwidth |
+| Interconnect | Protocol + generation + GB/s + topology + max scale |
+| Software stack | Compiler name + version + framework support matrix |
+| Perf benchmarks | Number + precision + workload + benchmark source |
+| Power / TOPS-per-W | Number + measurement condition |
+| Die size + yield signal | mm² + foundry/third-party estimate |
 
-Forbidden to stop at the marketing layer ("uses Transformer", "3nm process"). Drill to specific architectural choices and the engineering trade-offs they imply. Append a moat analysis paragraph for the leading product: patent stack, talent density, fab access, ecosystem lock-in, data network effects.
+For every quoted performance number, capture the **six-tuple**: hardware, software stack, model, batch, seqlen, precision. Numbers missing ≥3 of the six tuples must be discarded.
+
+Under the KTD table, you MUST include a **Benchmark Methodology Footer** listing:
+
+- Hardware configuration (model + card count + interconnect topology) with source
+- Software stack (driver + runtime + compiler + framework version) with source
+- Workload (model + parameter count + context length) with source
+- Precision (FP8/FP16/BF16/INT8/W4A16) with source
+- Batch size + sequence length with source
+- Test date and benchmarking party with source
+
+The linter will reject KTD sections that do not mention `batch`, `seqlen`/`sequence length`, `precision`/`FP8`/`FP16`/`BF16`/`INT8`, and `测试条件`/`methodology`.
+
+---
+
+## Step 6.5 — Moat Analysis (Legal-grade evidence)
+
+For the leading product (usually P1), run a five-axis moat analysis. Each axis must carry **legal or commercial level evidence** — not adjectives:
+
+- **Patent stack**: cite at least one patent number (`US\d{7,}` / `CN\d{9,}` / `EP\d{7,}` / `WO\d{4}/\d{6,}`) and summarize its independent claim in one sentence.
+- **Process / fab access**: cite a named long-term supply agreement, capacity reservation agreement, or a specific paragraph in an SEC / HKEX filing.
+- **Ecosystem**: cite named framework integrations (e.g., PyTorch version X, vLLM commit Y), GitHub star count, merged PR velocity.
+- **Data / learning flywheel** (if any): cite dataset size, update cadence, customer feedback loop signals.
+- **Talent / organization**: only if cited in public reporting — do not speculate.
+
+For each axis, answer explicitly: **"Can a well-funded follower replicate this in 24 months? Yes / No — one sentence why."**
 
 ---
 
@@ -129,7 +175,38 @@ Answer "So what?" for the reader's product / strategy / investment context. Conc
 - Which already-attempted path should we avoid because it has been falsified?
 - Which engineering fact can we directly reuse?
 
-Forbidden phrases: "需要持续关注", "值得观察", "未来可期". The linter will reject them.
+Forbidden phrases: "需要持续关注", "值得观察", "未来可期", "业界领先", "行业领先", "先进架构", "生态完善", "industry-leading", "best-in-class" (unless paired with specific benchmark), "revolutionary", "cutting-edge". The linter will reject them.
+
+---
+
+## Step 8.5 — Investor Appendix (MANDATORY for every report)
+
+Every Type A report must ship an investor-grade appendix. Read [../REQUIREMENT.MD](../REQUIREMENT.MD) §2.4 for full requirements. Four mandatory sub-blocks:
+
+### 8.5.1 Unit Economics
+- **ASP**: range + source
+- **BoM / wafer cost estimate**: die size × wafer ASP × yield + HBM + packaging + test — cite SemiAnalysis / TechInsights / ChipRebel if no first-party data
+- **Gross margin range**: from company earnings or analyst model
+- **CapEx intensity**: CapEx per $100M revenue
+
+### 8.5.2 Customer Concentration
+- **Top-3 customer share**: with source or explicit "not publicly disclosed"
+- **Named design wins**: customer name + project code + annualized deal size if public
+- **Switching cost signals**: software stack lock-in, procurement cycle, certification cost
+
+### 8.5.3 Capacity & Supply Constraints
+- **Front-end capacity**: foundry node wafer starts / monthly capacity; long-term contract commitments
+- **Back-end capacity**: CoWoS / FOPLP / advanced packaging monthly capacity share
+- **Key BOM items**: HBM allocation (SK hynix / Samsung / Micron), ABF substrate, special substrates
+- **24-month bottleneck**: single-sentence conclusion on the tightest knot
+
+### 8.5.4 Regulatory & Geopolitical Exposure
+- **Export controls**: cite specific rule numbers (15 CFR Part 744 / BIS ECCN / EAR / EU Chips Act)
+- **Antitrust / national security**: CFIUS / SAMR / CMA public disclosures
+- **Regional market access**: China CCC, EU CE, US FCC, India BIS
+- **Key geopolitical exposure**: Taiwan Strait / Russia-Ukraine / Middle East direct impact on supply or sales
+
+If any sub-block has no public disclosure, write "**无公开披露 — 原因：…**" explicitly. Do NOT leave blank.
 
 ---
 
@@ -144,9 +221,15 @@ python scripts/linter.py reports/<slug>.md --assets assets/<slug>/ --type A
 The linter will fail the report if any of the following are true:
 
 - Any sentence in §3–§8 lacks an inline URL/DOI/patent number.
+- Any KCA or KTD cell with a factual claim lacks an inline source.
 - Any of the 5 products is missing its product photo or architecture image.
 - Any image lacks the `图 X：[说明] — 来源：[链接]` caption.
 - The KCA Matrix has fewer than 3 dimensions or fewer than 5 product columns (unless TOP N degradation is justified).
+- Any banned shallow phrase (业界领先 / 先进架构 / 生态完善 / industry-leading …) appears anywhere.
+- Bare process node numbers appear without a foundry variant (TSMC N3E / Samsung SF4X / Intel 18A).
+- KTD section misses `batch`, `seqlen`/`sequence length`, `precision`/`FP8`/`FP16`/`BF16`/`INT8`, or `测试条件`/`methodology` keywords.
+- Moat / 壁垒 section is missing a patent number or SEC / HKEX filing reference.
+- Investor Appendix is missing any of the four sub-blocks or any of their keyword families (unit economics, customer concentration, capacity, regulatory).
 - The Implication contains banned filler phrases.
 
 Fix every issue before delivering. Do not silence warnings.
