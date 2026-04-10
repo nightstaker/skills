@@ -239,9 +239,9 @@ Layout: `LAYOUT_16x9` (10" × 5.625")
 
 ```
 Two-level navigation (top-right, replaces standalone section-break slides):
-  Position:  right-aligned, right edge at x=9.55"
-  Row 1 (sections):  y=0.02", h=0.15"
-  Row 2 (sub-pages): y=0.19", h=0.15"
+  Position:  right-aligned, right edge at x=9.95" (flush to slide edge with 0.05" margin)
+  Row 1 (sections):  y=0.02", h=fontSize/72 + 0.04" (≈ 0.11" at 5pt)
+  Row 2 (sub-pages): y=Row1.bottom + 0.02", h=same as Row 1
   Gap between tabs:   0.02" (minimum, fixed)
 
   Layout algorithm:
@@ -253,15 +253,15 @@ Two-level navigation (top-right, replaces standalone section-break slides):
        so all tabs fill the master width edge-to-edge
        Formula: tabWidth = naturalWidth × (availableTabSpace / sumOfNaturalWidths)
        where availableTabSpace = masterWidth - (tabCount - 1) × 0.02"
-    5. Both rows are right-aligned to x=9.55", left edges align exactly
+    5. Both rows are right-aligned to x=9.95", left edges align exactly
 
   Active section / active sub-page:
     Fill:  Accent (#CF0A2C)
-    Text:  7pt Microsoft YaHei, #FFFFFF, bold, center-aligned
+    Text:  5pt Microsoft YaHei, #FFFFFF, bold, center-aligned
 
   Inactive section / inactive sub-page:
     Fill:  Border (#E5E7EB)
-    Text:  7pt Microsoft YaHei, #1A1A1A, regular, center-aligned
+    Text:  5pt Microsoft YaHei, #1A1A1A, regular, center-aligned
 
   Row 2 shows only the sub-pages of the current section.
   Cover and closing slides omit the navigation (no section context).
