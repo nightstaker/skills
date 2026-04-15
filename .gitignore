@@ -2,6 +2,7 @@
 pptx
 pro-pptx/node_modules
 pro-pptx/output/
+tech-insight/output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
