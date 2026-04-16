@@ -87,7 +87,7 @@ For each content slide, apply the Content Extender logic:
 
 3. **Layout Saturation**: Assign layouts that maximize information density:
    - Prefer "left-visual / right-text" or "multi-column array" arrangements
-   - Large whitespace zones (> 30% of content area unused) are prohibited
+   - Blank area exceeding 20% of content area is prohibited (including empty space within shapes and shapeless areas)
    - Every content slide MUST include at least one visual element — no pure-text slides
 
 ### Overflow Strategy
@@ -251,6 +251,73 @@ function addFixedElements(slide, sectionName, pageNum) {
 
 **Density floor**: Every content slide must have ≥ 150 characters of substantive content and 3–5 analytical points.
 
+### Grid-Aware Rendering (MANDATORY)
+
+All content placement MUST use the grid layout system and anti-overlap placement tracker defined in the template's "Grid Layout System" section.
+
+**Content zone** (all elements must fit within):
+- x: 0.45" – 9.55" (width = 9.10")
+- y: 1.00" – 5.15" (or 4.78" when insight callout is present)
+
+**Placement tracker** — include in EVERY rendering script:
+
+```javascript
+// Grid-aware placement tracker — prevents overlap
+function createGrid() { return { placed: [] }; }
+
+function canPlace(grid, x, y, w, h, contentBottom) {
+  contentBottom = contentBottom || 5.15;
+  if (y + h > contentBottom + 0.01) return false;
+  if (x + w > 9.56) return false;
+  if (x < 0.44) return false;
+  if (y < 0.99) return false;
+  for (var i = 0; i < grid.placed.length; i++) {
+    var p = grid.placed[i];
+    if (x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y) return false;
+  }
+  return true;
+}
+
+function place(grid, x, y, w, h) {
+  grid.placed.push({ x: x, y: y, w: w, h: h });
+}
+```
+
+**Anti-overlap shrink loop** — apply when elements would overlap:
+
+```javascript
+// Before placing any element, verify and shrink if needed
+var g = createGrid();
+var fontSize = 13;
+var gap = 0.10;
+var x = 0.45, y = 1.00, w = 4.20, h = 2.60;
+
+// Step 1: try reducing gap
+while (!canPlace(g, x, y, w, h) && gap >= 0.05) {
+  y -= 0.02; h -= 0.02; gap -= 0.02;
+}
+// Step 2: reduce font + height
+while (!canPlace(g, x, y, w, h) && fontSize >= 7) {
+  h *= 0.92;
+  fontSize -= 1;
+}
+// Step 3: proportional height reduction (last resort)
+if (!canPlace(g, x, y, w, h)) {
+  var maxH = (contentBottom - y);
+  if (maxH > 0) h = maxH;
+}
+
+place(g, x, y, w, h);
+slide.addText(content, { x: x, y: y, w: w, h: h, fontSize: fontSize, ... });
+```
+
+**Rules**:
+1. Create a fresh grid (`createGrid()`) for each slide
+2. Register EVERY element via `place()` after adding it
+3. Check EVERY element via `canPlace()` before adding it
+4. Apply the shrink loop for any element that fails `canPlace()`
+5. NEVER allow two shapes to overlap — this is a hard failure
+
 ### Script Structure
 
 ```javascript
@@ -259,22 +326,15 @@ const pres = new pptxgen();
 pres.layout = "LAYOUT_16x9";
 pres.title = "Deck Title";
 
+// --- Grid helpers (see above) ---
+
 // --- Slide 1: Cover ---
 const slide1 = pres.addSlide();
-// background
-slide1.addShape(pres.shapes.RECTANGLE, {
-  x: 0, y: 0, w: 10, h: 5.625,
-  fill: { color: COLORS.primary }
-});
-// title
-slide1.addText("Presentation Title", {
-  x: 0.8, y: 1.8, w: 8.4, h: 1.2,
-  fontSize: SIZES.title, fontFace: FONTS.heading,
-  color: COLORS.secondary, bold: true
-});
+var g1 = createGrid();
+// ... place elements with canPlace/place checks ...
 addFixedElements(slide1, "Cover", 1);
 
-// --- Continue for each slide ---
+// --- Continue for each slide (always with grid tracker) ---
 
 pres.writeFile({ fileName: "output.pptx" });
 ```
@@ -307,8 +367,10 @@ Fix all linter errors. Run at least one visual QA cycle before delivery.
 - **Never skip fixed elements** on any slide (page numbers, category labels)
 - **Never create text-only slides** — every content slide needs a visual (chart, table, diagram, metric card)
 - **Never mix font faces** not in the template's Typography section
-- **Never leave large whitespace** — use saturation fill layouts; >30% unused content area is prohibited
+- **Never leave blank space** — use saturation fill layouts; >20% unused content area is prohibited (including within-shape empty space)
 - **Never truncate or naively split** overflowing content — use level-folding or extract-summary instead
 - **Never deliver sparse slides** — minimum 150 chars and 3–5 analytical points per content slide
 - **Always generate Alt Text** for every embedded image and chart (accessibility compliance)
 - **Consistent spacing**: use the template's defined margins (usually 0.5" edge margin, 0.3–0.5" between blocks)
+- **Never allow shape overlap** — use the placement tracker (createGrid/canPlace/place) on every slide; if elements overlap, apply the anti-overlap shrink protocol (reduce gaps → reduce fonts → reduce heights → fold content)
+- **Never exceed the content zone** — all elements must stay within x=0.45–9.55", y=1.00–5.15" (or 4.78" with callout); elements outside this zone collide with nav bars, titles, or footers

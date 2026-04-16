@@ -55,7 +55,7 @@ Visual-Text Ratio:
 
 Layout Saturation:
   Prefer "left-visual / right-text" or "multi-column" arrangements.
-  Large whitespace zones (> 30% of content area unused) are prohibited.
+  Blank area > 20% of content area is prohibited.
   Overflow: apply level-folding (collapse to matrix/table) or extract-summary
   (key point + evidence tag) — never truncate or naively split.
 ```

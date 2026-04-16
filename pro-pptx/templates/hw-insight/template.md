@@ -128,7 +128,32 @@ A real image counts as a visual element and satisfies this requirement.
 
 ```
 Prefer "left-visual / right-text" or "multi-column array" arrangements to maximize
-information density. Large whitespace zones (> 30% of content area unused) are prohibited.
+information density. Blank area > 20% of content area is prohibited.
+
+Blank area definition:
+  Blank = content zone area MINUS area occupied by substantive elements.
+  Substantive elements: text boxes with real analytical text, data tables,
+  charts, images, metric cards — elements that convey information.
+  NOT substantive: background fills (INK, Highlight, or any solid color
+  used purely as decoration without overlaid text), empty shapes, placeholder
+  shapes. A shape filled with INK (#F5F6FA) or any background color that
+  contains no text is counted as BLANK, not occupied.
+
+How to reduce blank area (priority order):
+  1. EXTRACT MORE CONTENT from the source material — if converting from a report,
+     pull additional data points, comparisons, evidence, or analysis from the
+     original document into the slide. Every slide should contain the MAXIMUM
+     amount of relevant analytical content that fits.
+  2. ADD DEEPER ANALYSIS — if the source is exhausted, use WebSearch to find
+     supplementary data: benchmark numbers, market statistics, competitive
+     comparisons, expert quotes, or architectural details that enrich the slide.
+  3. EXPAND EXISTING ELEMENTS — make tables wider/taller with more rows/columns,
+     add annotation text below charts, add evidence tags beside key claims.
+  4. ADD COMPLEMENTARY VISUALS — add a second visual element (comparison table
+     alongside an image, metric cards beside a chart).
+  NEVER use background-only fills to fake density. NEVER add decorative shapes
+  without informational content.
+
 When content overflows, apply "level folding" (collapse sub-points into a matrix or table)
 or "extract summary" (distill to key signal + evidence tag) — never truncate or naively split
 across slides.
@@ -158,6 +183,172 @@ Table Title Rule:
   positioned at x equal to the table's x, y = table.y − 0.20", h=0.18".
   The title describes the table's analytical purpose (e.g., "三条融合路径全景对比"),
   not a generic label (e.g., "表1"). Tables without titles fail the linter.
+```
+
+## Grid Layout System
+
+All content placement MUST follow a grid-based coordinate system. This ensures content fills the page uniformly and **strictly prevents shape overlap**.
+
+### Grid Definition
+
+```
+Slide canvas:     10.0" × 5.625" (LAYOUT_16x9)
+
+Reserved zones (NOT available for content):
+  Nav bar:        y = 0.00" – 0.24"  (two-level navigation, top-right)
+  Title bar:      y = 0.27" – 0.72"  (slide title + divider line)
+  Footer:         y = 5.20" – 5.625" (page number, confidentiality, logo)
+
+Content zone (all content MUST fit within this rectangle):
+  x:  0.45" – 9.55"     (width = 9.10")
+  y:  0.75" – 5.15"     (height = 4.40")
+  This includes all body text, tables, images, charts, metric blocks,
+  insight callouts, and any other visual elements.
+
+Insight callout zone (bottom strip of content zone):
+  y:  4.83" – 5.15"     (height = 0.32")
+  When present, the callout occupies this strip and the main content zone
+  shrinks to y = 0.75" – 4.78" (height = 4.03").
+
+Grid unit:
+  Column unit = 9.10" / 12 = 0.758"  (12-column grid)
+  Row unit    = content zone height / available rows
+  Gap between grid cells: 0.10" (horizontal and vertical)
+```
+
+### Grid Placement Rules
+
+```
+Rule 1 — ALL shapes must align to grid boundaries.
+  Every addText, addImage, addShape, addTable, addChart call must have
+  (x, y, w, h) values that fall within the content zone and align to
+  column/row boundaries. No element may extend outside the content zone.
+
+Rule 2 — ZERO OVERLAP: no two shapes may occupy the same pixel.
+  Before placing any element, verify that its bounding box
+  [x, y, x+w, y+h] does not intersect with any previously placed element.
+  Intersection test: overlap exists if and only if
+    (A.x < B.x+B.w) && (A.x+A.w > B.x) && (A.y < B.y+B.h) && (A.y+A.h > B.y)
+  If overlap is detected, DO NOT place the element — apply the shrink protocol below.
+
+Rule 3 — Fill the grid: content should expand to use available space.
+  After placing all elements, check for unused area > 20% of content zone.
+  If too much blank space remains, expand existing elements or add analytical depth.
+
+Rule 4 — Content zone boundary is a hard wall.
+  No element's (y + h) may exceed the bottom of the content zone (5.15",
+  or 4.78" when insight callout is present). No element's (x + w) may
+  exceed 9.55".
+```
+
+### Anti-Overlap Shrink Protocol
+
+When content is too dense and elements would overlap or exceed the content zone boundary, apply this protocol **in order** until no overlap exists:
+
+```
+Step 1 — Reduce inter-element gap.
+  Shrink the gap between vertically stacked elements from 0.10" down to 0.05".
+  Re-check overlap.
+
+Step 2 — Reduce font sizes uniformly.
+  Reduce ALL body text on the slide by 1pt (minimum floor: 7pt for body, 6pt for tables).
+  This shrinks text box heights. Re-check overlap.
+  Repeat Step 2 up to 3 times (max reduction: 3pt from baseline).
+
+Step 3 — Reduce element heights proportionally.
+  Calculate total overflow = sum of (element bottoms) − content zone bottom.
+  Distribute the reduction proportionally across all elements:
+    new_h = old_h × (available_height / total_used_height)
+  Re-check overlap.
+
+Step 4 — Fold content into denser layouts.
+  Convert bullet lists into tables or matrices (level folding).
+  Convert two separate text blocks into a two-column layout.
+  This is the last resort before splitting to a new slide.
+
+NEVER truncate content. NEVER allow overlap. NEVER exceed the content zone.
+```
+
+### Layout Grid Templates
+
+Common grid patterns for each layout type:
+
+```
+content (single-zone):
+  Full content zone: x=0.45, y=0.75, w=9.10, h=4.03 (with callout)
+  Typical split: left 5.0" (image/visual) + right 4.0" (text/table) + 0.10" gap
+
+two-column:
+  Column headers: y=0.75, h=0.32
+  Left column:    x=0.45, y=1.12, w=4.35, h=3.66 (with callout)
+  Right column:   x=4.90, y=1.12, w=4.65, h=3.66 (with callout)
+  Column gap:     0.10"
+
+insight-summary:
+  So-What box:    x=0.45, y=0.75, w=9.10, h=0.65
+  Pillar row:     y=1.50, h=3.28
+    Pillar 1:     x=0.45, w=2.90
+    Pillar 2:     x=3.55, w=2.90
+    Pillar 3:     x=6.65, w=2.90
+    Pillar gaps:  0.10"
+
+data (full-width table/chart):
+  Table/Chart:    x=0.45, y=0.75, w=9.10, h=4.03 (with callout)
+
+tech-metric (3-block):
+  Block 1:        x=0.45, y=0.80, w=2.90, h=3.20
+  Block 2:        x=3.45, y=0.80, w=2.90, h=3.20
+  Block 3:        x=6.45, y=0.80, w=2.90, h=3.20
+  Block gaps:     0.10"
+  Callout below:  y=4.10, h=0.32
+
+tech-metric (4-block):
+  Block 1:        x=0.45, y=0.80, w=2.15, h=3.20
+  Block 2:        x=2.70, y=0.80, w=2.15, h=3.20
+  Block 3:        x=4.95, y=0.80, w=2.15, h=3.20
+  Block 4:        x=7.20, y=0.80, w=2.15, h=3.20
+  Block gaps:     0.10"
+```
+
+### Rendering Code Pattern (Anti-Overlap)
+
+The PptxGenJS rendering script MUST use a placement tracker to prevent overlap:
+
+```javascript
+// Grid-aware placement tracker — use on EVERY slide
+function createGrid() {
+  return { placed: [] };
+}
+
+function canPlace(grid, x, y, w, h) {
+  var contentBottom = 4.78;  // 5.15 if no callout
+  if (y + h > contentBottom + 0.01) return false;
+  if (x + w > 9.56) return false;
+  for (var i = 0; i < grid.placed.length; i++) {
+    var p = grid.placed[i];
+    if (x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y) {
+      return false;  // overlap detected
+    }
+  }
+  return true;
+}
+
+function place(grid, x, y, w, h) {
+  grid.placed.push({ x: x, y: y, w: w, h: h });
+}
+
+// Usage pattern:
+var g = createGrid();
+var x = 0.45, y = 1.00, w = 4.20, h = 2.60;
+
+// Shrink loop: reduce h and font until no overlap and within bounds
+var fontSize = 13;
+while (!canPlace(g, x, y, w, h) && fontSize >= 7) {
+  h *= 0.92;    // shrink height by 8%
+  fontSize -= 1;
+}
+place(g, x, y, w, h);
+slide.addText(content, { x: x, y: y, w: w, h: h, fontSize: fontSize, ... });
 ```
 
 ---
@@ -240,20 +431,22 @@ Layout: `LAYOUT_16x9` (10" × 5.625")
 ```
 Two-level navigation (top-right, replaces standalone section-break slides):
   Position:  right-aligned, right edge at x=9.95" (flush to slide edge with 0.05" margin)
-  Row 1 (sections):  y=0.02", h=fontSize/72 + 0.04" (≈ 0.11" at 5pt)
-  Row 2 (sub-pages): y=Row1.bottom + 0.02", h=same as Row 1
+  Row 1 (sections):  y=0.02", h=0.10" (compact: 5pt text + minimal padding)
+  Row 2 (sub-pages): y=0.14", h=0.10" (gap between rows: 0.02")
+  Total nav height:   0.24" (y=0.02" to y=0.24")
   Gap between tabs:   0.02" (minimum, fixed)
 
   Layout algorithm:
     1. Compute each tab's natural width from text:
-       - CJK character ≈ 0.09", ASCII character ≈ 0.05", plus 0.16" padding per tab
-    2. Sum natural widths + gaps for Row 1 and Row 2 separately
-    3. Master row = the wider of the two (tightest fit with minimum gaps)
-    4. The other row stretches: keep gap at 0.02", scale each tab width proportionally
-       so all tabs fill the master width edge-to-edge
-       Formula: tabWidth = naturalWidth × (availableTabSpace / sumOfNaturalWidths)
+       - CJK character ≈ 0.07", ASCII character ≈ 0.04", plus 0.10" padding per tab
+    2. Sum natural widths + gaps for Row 1
+    3. Compute Row 2 natural widths for EVERY section's sub-pages (not just current section)
+    4. Global master width = max(Row 1 total, max of ALL Row 2 totals across all sections)
+       This ensures the nav block has IDENTICAL width on every slide in the deck.
+    5. Scale each row's tab widths proportionally to fill the global master width:
+       tabWidth = naturalWidth × (availableTabSpace / sumOfNaturalWidths)
        where availableTabSpace = masterWidth - (tabCount - 1) × 0.02"
-    5. Both rows are right-aligned to x=9.95", left edges align exactly
+    6. Both rows are right-aligned to x=9.95", left edges align exactly
 
   Active section / active sub-page:
     Fill:  Accent (#CF0A2C)
@@ -301,10 +494,11 @@ Footer vertical alignment rule:
 
 ## Layout Quick Reference (coordinates in inches, 10" × 5.625" canvas)
 
-**Slide title position note**: Layouts fall into two groups by title y-coordinate.
-- **y=0.38, h=0.50**: `content`, `insight-summary`, `closing` — these have a divider line at y=0.95 and content starting at y=1.05+, so the title sits slightly lower.
-- **y=0.28, h=0.55**: `two-column`, `tech-metric`, `tech-radar`, `arch-compare`, `data`, `callout` — these pack more content and start the body area earlier.
-Both groups are intentional. Within each group, titles must remain at their declared y-position.
+**Slide title position note**: ALL layouts share a single unified title position to maximize content area:
+- **y=0.27, h=0.40**: uniform across `content`, `insight-summary`, `closing`, `two-column`, `tech-metric`, `tech-radar`, `arch-compare`, `data`, `callout`
+- **Divider line**: y=0.70 (immediately below title)
+- **Content zone starts**: y=0.75 (only 0.03" gap below nav bottom at y=0.24)
+- This compact layout gains ~0.25" of content space compared to the previous split-group approach.
 
 ### cover
 ```
@@ -323,15 +517,15 @@ Footer logo:       (fixed element — same position as all slides)
 
 ### insight-summary
 ```
-Two-level nav:     (fixed element — top-right)
-Slide title:       x=0.45, y=0.38, w=9.1,  h=0.50,  22pt bold Accent (#CF0A2C)
-Divider line:      x=0.45, y=0.95, w=9.1,  h=0,     border bottom 0.75pt Border (#E5E7EB)
-So-What box:       x=0.45, y=1.05, w=9.1,  h=0.72,  fill=AlertTint (#FFF0F0), border=Accent 2pt
-  Box text:        x=0.65, y=1.10, w=8.7,  h=0.62,  13pt bold Accent — one-sentence strategic signal
+Two-level nav:     (fixed element — top-right, y=0.02"–0.24")
+Slide title:       x=0.45, y=0.27, w=9.1,  h=0.40,  22pt bold Accent (#CF0A2C)
+Divider line:      x=0.45, y=0.70, w=9.1,  h=0,     border bottom 0.75pt Border (#E5E7EB)
+So-What box:       x=0.45, y=0.75, w=9.1,  h=0.65,  fill=AlertTint (#FFF0F0), border=Accent 2pt
+  Box text:        x=0.55, y=0.78, w=8.9,  h=0.58,  13pt bold Accent — one-sentence strategic signal
 Pillar row (3):
-  Pillar 1:        x=0.45, y=1.90, w=2.9,  h=2.95,  fill=Ink (#F5F6FA), border=Border 1pt
-  Pillar 2:        x=3.55, y=1.90, w=2.9,  h=2.95,  fill=Ink (#F5F6FA), border=Border 1pt
-  Pillar 3:        x=6.65, y=1.90, w=2.9,  h=2.95,  fill=Ink (#F5F6FA), border=Border 1pt
+  Pillar 1:        x=0.45, y=1.50, w=2.9,  h=3.35,  fill=Ink (#F5F6FA), border=Border 1pt
+  Pillar 2:        x=3.55, y=1.50, w=2.9,  h=3.35,  fill=Ink (#F5F6FA), border=Border 1pt
+  Pillar 3:        x=6.65, y=1.50, w=2.9,  h=3.35,  fill=Ink (#F5F6FA), border=Border 1pt
   Per pillar:
     Header:        13pt bold Primary, centered, top 0.3" of cell
     Body:          11pt regular Text, left-aligned
@@ -342,10 +536,10 @@ Footer logo:       (fixed element)
 
 ### content
 ```
-Two-level nav:     (see Fixed Elements — top-right, y=0.02"–0.34")
-Slide title:       x=0.45, y=0.38, w=9.1,  h=0.50,  22pt bold Accent (#CF0A2C)
-Divider line:      x=0.45, y=0.95, w=9.1,  h=0,     border bottom 0.75pt Border (#E5E7EB)
-Content area:      x=0.45, y=1.07, w=9.1,  h=4.05,  13pt regular Text
+Two-level nav:     (see Fixed Elements — top-right, y=0.02"–0.24")
+Slide title:       x=0.45, y=0.27, w=9.1,  h=0.40,  22pt bold Accent (#CF0A2C)
+Divider line:      x=0.45, y=0.70, w=9.1,  h=0,     border bottom 0.75pt Border (#E5E7EB)
+Content area:      x=0.45, y=0.75, w=9.1,  h=4.37,  13pt regular Text
 Page number:       (fixed element — bottom left: "Page X/Y")
 Confidentiality:   (fixed element — bottom left, right of page number: "Huawei Confidential")
 Footer logo:       (fixed element — bottom right: assets/logo.svg)
@@ -353,22 +547,22 @@ Footer logo:       (fixed element — bottom right: assets/logo.svg)
 
 ### two-column
 ```
-Slide title:       x=0.45, y=0.28, w=9.1,  h=0.55,  22pt bold Accent (#CF0A2C)
-Left col header:   x=0.45, y=1.05, w=4.35, h=0.38,  fill=NavyMid, 12pt bold white, centered
-                   label: context-dependent (default: "信号 / Observed Signals")
-Right col header:  x=5.0,  y=1.05, w=4.55, h=0.38,  fill=Highlight, 12pt bold Primary, centered
-                   label: context-dependent (default: "战略含义 / Strategic Implications")
-Left column:       x=0.45, y=1.5,  w=4.35, h=3.85
-Right column:      x=5.0,  y=1.5,  w=4.55, h=3.85
-Column gap:        0.2"
+Slide title:       x=0.45, y=0.27, w=9.1,  h=0.40,  22pt bold Accent (#CF0A2C)
+Divider line:      x=0.45, y=0.70, w=9.1,  h=0,     border bottom 0.75pt Border (#E5E7EB)
+Left col header:   x=0.45, y=0.75, w=4.35, h=0.32,  fill=NavyMid, 12pt bold white, centered
+Right col header:  x=4.90, y=0.75, w=4.65, h=0.32,  fill=Highlight, 12pt bold Primary, centered
+Left column:       x=0.45, y=1.12, w=4.35, h=4.00
+Right column:      x=4.90, y=1.12, w=4.65, h=4.00
+Column gap:        0.10"
 ```
 
 ### tech-metric
 ```
-Slide title:       x=0.45, y=0.28, w=9.1,  h=0.55,  22pt bold Accent (#CF0A2C)
+Slide title:       x=0.45, y=0.27, w=9.1,  h=0.40,  22pt bold Accent (#CF0A2C)
+Divider line:      x=0.45, y=0.70, w=9.1,  h=0,     border bottom 0.75pt Border (#E5E7EB)
 Metric blocks (3 or 4):
-  3-block:         x=0.45/3.55/6.65, y=1.4,  w=2.9,  h=2.8
-  4-block:         x=0.45/2.9/5.35/7.8, y=1.4, w=2.15, h=2.8
+  3-block:         x=0.45/3.55/6.65, y=0.80,  w=2.9,  h=3.2
+  4-block:         x=0.45/2.9/5.35/7.8, y=0.80, w=2.15, h=3.2
   Per block:
     Value:         48pt bold Primary, center-aligned
     Unit/Config:   13pt Muted below value (e.g., "TFLOPS @ FP16", "ms P99 latency")
@@ -381,8 +575,9 @@ Benchmark config:  → Slide Notes (see Evidence Hierarchy). Include hardware co
 
 ### tech-radar
 ```
-Slide title:       x=0.45, y=0.28, w=9.1,  h=0.55,  22pt bold Accent (#CF0A2C)
-Matrix frame:      x=0.55, y=1.1,  w=8.9,  h=4.2
+Slide title:       x=0.45, y=0.27, w=9.1,  h=0.40,  22pt bold Accent (#CF0A2C)
+Divider line:      x=0.45, y=0.70, w=9.1,  h=0,     border bottom 0.75pt Border (#E5E7EB)
+Matrix frame:      x=0.55, y=0.80, w=8.9,  h=4.30
   X-axis label:    center-bottom, 11pt bold Primary (e.g., "行业成熟度 (TRL) →")
   Y-axis label:    center-left rotated 90°, 11pt bold Primary (e.g., "↑ 技术差异化潜力")
 Quadrant fills:
@@ -400,14 +595,15 @@ Source citation:   → Slide Notes (see Evidence Hierarchy).
 
 ### arch-compare
 ```
-Slide title:       x=0.45, y=0.28, w=9.1,  h=0.55,  22pt bold Accent (#CF0A2C)
-Left arch panel:   x=0.45, y=1.05, w=4.35, h=3.0,   fill=Ink, border=Border 1pt
+Slide title:       x=0.45, y=0.27, w=9.1,  h=0.40,  22pt bold Accent (#CF0A2C)
+Divider line:      x=0.45, y=0.70, w=9.1,  h=0,     border bottom 0.75pt Border (#E5E7EB)
+Left arch panel:   x=0.45, y=0.75, w=4.35, h=3.20,  fill=Ink, border=Border 1pt
   Panel label:     12pt bold Primary, top 0.3" of panel, centered (name of Architecture A)
-  Diagram area:    x=0.55, y=1.5,  w=4.15, h=2.45   (external architecture block diagram or description)
-Right arch panel:  x=5.0,  y=1.05, w=4.55, h=3.0,   fill=Highlight, border=NavyMid 1pt
+  Diagram area:    x=0.55, y=1.10, w=4.15, h=2.75
+Right arch panel:  x=4.90, y=0.75, w=4.65, h=3.20,  fill=Highlight, border=NavyMid 1pt
   Panel label:     12pt bold Primary, top 0.3" of panel, centered (name of Architecture B)
-  Diagram area:    x=5.1,  y=1.5,  w=4.35, h=2.45
-Trade-off row:     x=0.45, y=4.15, w=9.1,  h=1.2
+  Diagram area:    x=5.00, y=1.10, w=4.45, h=2.75
+Trade-off row:     x=0.45, y=4.05, w=9.1,  h=1.05
   Left note:       11pt italic Muted, below left panel — Architecture A trade-offs / limitations
   Right note:      11pt italic Muted, below right panel — Architecture B trade-offs / strengths
 CONSTRAINT: External architectures only (see External-Scope Constraint).

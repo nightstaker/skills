@@ -54,7 +54,7 @@ Visual-Text Ratio:
 
 Layout Saturation:
   Use clean card-based layouts to fill content area without clutter.
-  Large whitespace zones (> 30% of content area unused) are prohibited.
+  Blank area > 20% of content area is prohibited.
   Overflow: apply level-folding or extract-summary — never truncate.
 ```
 
