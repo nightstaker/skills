@@ -164,7 +164,7 @@ After rendering into the target template, verify and enhance content density:
 
 1. **Density audit**: Check each content slide for ≥ 150 characters and 3–5 substantive points
 2. **Visual mandatory**: Ensure every content slide has at least one visual element; if the source had a text-only slide, generate a structured visual (table, matrix, metric card) from the content
-3. **Layout saturation**: Verify no slide has > 30% unused content area; reassign layouts if needed
+3. **Layout saturation**: Verify no slide has > 20% blank area (including within-shape empty space); reassign layouts if needed
 4. **Logic densification**: If source content was sparse, supplement with industry context or data appropriate to the target template's domain
 
 ---

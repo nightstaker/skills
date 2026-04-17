@@ -78,11 +78,19 @@ For every task, follow this sequence:
    For each slide in the tree:
    a. Logic Densification — if input is brief, supplement with industry background,
       case studies, data projections to meet density targets (≥150 chars, 3–5 points)
-   b. Visual Trigger — determine the required visual type per slide (chart, table,
+   b. Source Extraction — when converting from a report/document, extract the MAXIMUM
+      amount of relevant analytical content per slide: additional data points, evidence,
+      comparisons, benchmark numbers, architectural details. Every slide should be
+      packed with substantive information from the source. If the source is exhausted,
+      use WebSearch to find supplementary data (market stats, competitive analysis,
+      expert quotes, benchmark details) to enrich the slide.
+   c. Visual Trigger — determine the required visual type per slide (chart, table,
       diagram, metric card, radar) based on content; generate an "imagery description"
-   c. Layout Saturation — assign layouts that maximize information density;
-      prefer "left-visual / right-text" or "multi-column array"; reject large whitespace
-   d. Smart Overflow — if content exceeds layout capacity, apply "level folding"
+   d. Layout Saturation — assign layouts that maximize information density;
+      prefer "left-visual / right-text" or "multi-column array"; reject >20% blank area.
+      Blank area includes background-only fills (INK/Highlight) without text — these
+      do NOT count as occupied space. Only real content (text, tables, images) counts.
+   e. Smart Overflow — if content exceeds layout capacity, apply "level folding"
       (collapse sub-points into matrix/table) or "extract summary" (key signal +
       evidence tag); NEVER truncate or naively split into half-empty slides
 
@@ -106,12 +114,20 @@ For every task, follow this sequence:
    - Key content per slide
    Ask user to confirm before generating PPTX
 
-7. RENDER
+7. RENDER (Grid-Aware)
    Use pptxgenjs OR unpack→edit→pack depending on source:
    - No input file → PptxGenJS (read ../pptx/pptxgenjs.md)
    - Input file exists → unpack→edit→pack (read ../pptx/editing.md)
    Apply template constraints strictly
    Embed downloaded images via addImage({ path: ... }) with Alt Text
+   CRITICAL — Grid layout enforcement:
+   a. Every slide must use a placement tracker (createGrid/canPlace/place)
+   b. All elements must fit within the content zone (x: 0.45–9.55, y: 1.00–5.15)
+   c. Before placing any element, verify no overlap with previously placed elements
+   d. If overlap detected, apply anti-overlap shrink protocol:
+      reduce gaps → reduce fonts → reduce heights → fold into denser layout
+   e. NEVER allow two shapes to occupy the same pixel area
+   f. NEVER let any element extend outside the content zone boundary
 
 8. QA
    python scripts/linter.py output.pptx --template templates/<name>/template.md
@@ -137,7 +153,10 @@ When a template defines constraints, they are **non-negotiable**:
 - **Content density**: Every content slide must have ≥150 characters and 3–5 substantive analytical points (if template defines Content Constraints)
 - **Visual mandatory**: Every content slide must include at least one visual element (chart, table, diagram, metric block). Pure-text slides are forbidden
 - **Visual-text ratio**: Visual elements must occupy ≥40% of the content area; text must annotate visuals, not stand alone
-- **Layout saturation**: No large whitespace zones (>30% of content area unused); use saturation fill layouts
+- **Layout saturation**: No blank area exceeding 20% of content area (including empty space within shapes and areas without shapes); use saturation fill layouts
+- **Grid layout**: All content placement must follow the grid-based coordinate system defined in the template; every element must align to grid boundaries within the content zone
+- **Zero overlap**: No two shapes may occupy the same pixel area; rendering code must use a placement tracker to verify non-intersection before placing any element
+- **Anti-overlap shrink**: When content would cause overlap or exceed content zone boundaries, apply the shrink protocol (reduce gaps → reduce fonts → reduce heights → fold content) — never truncate, never allow overlap
 
 If a user requests something that violates template constraints, inform them explicitly before proceeding.
 

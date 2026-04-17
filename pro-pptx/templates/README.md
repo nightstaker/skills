@@ -71,7 +71,7 @@ Visual-Text Ratio:
   Visual elements must occupy ≥ 40% of the content area.
 
 Layout Saturation:
-  Prefer dense layouts. Large whitespace zones (> 30% unused) are prohibited.
+  Prefer dense layouts. Blank area > 20% of content area is prohibited.
   Overflow strategy: level-folding or extract-summary (never truncate/naively split).
 ```
 

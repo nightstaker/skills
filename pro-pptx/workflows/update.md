@@ -140,7 +140,7 @@ For each unlocked slide requiring changes:
    - ≥ 150 characters of substantive content per slide
    - At least one visual element (chart, table, diagram, shape) present
    - Visual elements occupy ≥ 40% of content area
-   - No large whitespace zones (> 30% unused)
+   - No blank area > 20% of content area
 6. **Content enrichment**: if the updated content is too sparse, apply logic densification — supplement with industry context, case studies, or data projections to meet density targets
 
 For font compliance in XML edits:
