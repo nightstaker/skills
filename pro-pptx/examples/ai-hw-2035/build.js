@@ -10,6 +10,8 @@
 const path = require("path");
 const fs = require("fs");
 const pptxgen = require("pptxgenjs");
+// Linter-aligned render-time helpers (see ../../SKILL.md "Render-Time Helpers")
+const H = require(path.resolve(__dirname, "../../scripts/helpers.js"));
 
 const pres = new pptxgen();
 pres.layout = "LAYOUT_16x9";
@@ -334,10 +336,12 @@ function slideStackTable() {
     ["编译/运行时", "硬件感知编译器、自动调优", "性能可移植、动态调度、功耗感知"],
     ["算法", "稀疏/低秩/量化、训练推理高效化", "硬件感知、模块化、鲁棒性、局部性"],
   ];
-  s.addTable(rows, {
+  // Demonstrates H.safeTable: auto-shrinks fontSize so total h fits before
+  // the callout zone (4.83-5.15) — eliminates `element_overlap` callout vs table.
+  H.safeTable(s, rows, {
     x: 0.45, y: 1.05, w: 9.10, fontSize: 8, fontFace: F.body, color: C.text,
     border: { type: "solid", pt: 0.5, color: C.border },
-    colW: [1.30, 4.10, 3.70], autoPage: false, valign: "middle",
+    colW: [1.30, 4.10, 3.70], contentBottom: 4.78,
   });
   addCallout(s, "存储 / 互联 / 封装 三行是系统能效的决定性杠杆，比单芯片工艺更值得押注。");
   fixed(s, 6, TOTAL, 1, 1);
@@ -423,10 +427,10 @@ function slideCIMQuad() {
     ["CIM-P", "外围电路内"],
     ["CIM-A", "存储阵列内（模拟）"],
   ];
-  s.addTable(rows, {
-    x: 6.65, y: 0.80, w: 2.90, h: 1.80, fontSize: 9, fontFace: F.body, color: C.text,
+  H.safeTable(s, rows, {
+    x: 6.65, y: 0.80, w: 2.90, fontSize: 9, fontFace: F.body, color: C.text,
     border: { type: "solid", pt: 0.5, color: C.border },
-    colW: [0.95, 1.95], rowH: 0.36, valign: "middle",
+    colW: [0.95, 1.95], contentBottom: 2.65,
   });
   s.addText([
     { text: "CIM 关键事实：\n", options: { fontSize: 12, bold: true, color: C.primary } },
@@ -515,10 +519,10 @@ function slideHBM() {
     ["HBM4E", "16-Hi", "≥ 10 Gbps", "2048", "≥ 2.5 TB/s", "48+ GB", "2027（预计）"],
     ["HBM5（规划）", "16-Hi+", "≥ 14 Gbps", "2048-4096", "≥ 4 TB/s", "64+ GB", "2028+（预计）"],
   ];
-  s.addTable(rows, {
-    x: 0.45, y: 1.05, w: 9.10, h: 2.95, fontSize: 9, fontFace: F.body, color: C.text,
+  H.safeTable(s, rows, {
+    x: 0.45, y: 1.05, w: 9.10, fontSize: 9, fontFace: F.body, color: C.text,
     border: { type: "solid", pt: 0.5, color: C.border },
-    colW: [1.45, 0.85, 1.25, 1.00, 1.55, 1.00, 2.00], rowH: 0.42, valign: "middle",
+    colW: [1.45, 0.85, 1.25, 1.00, 1.55, 1.00, 2.00], contentBottom: 4.05,
   });
   s.addText([
     { text: "三个信号： ", options: { fontSize: 11, bold: true, color: C.primary } },
@@ -729,10 +733,10 @@ function slidePower() {
     ["数据中心密度趋势", "高密度（≥80kW/机柜）受限", "新建机房可按高密度设计"],
     ["政策/监管", "碎片化，州级复杂", "基础设施协调集中"],
   ];
-  s.addTable(rows, {
+  H.safeTable(s, rows, {
     x: 0.45, y: 2.05, w: 9.10, fontSize: 8, fontFace: F.body, color: C.text,
     border: { type: "solid", pt: 0.5, color: C.border },
-    colW: [2.30, 3.40, 3.40], valign: "middle",
+    colW: [2.30, 3.40, 3.40], contentBottom: 4.78,
   });
   addCallout(s, "2030 前的竞争从『谁有更多 GPU』转向『谁有更多 GW + 低 PUE 机房 + 更好的调度』。");
   fixed(s, 16, TOTAL, 4, 0);
