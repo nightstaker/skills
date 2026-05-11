@@ -20,6 +20,31 @@ A production-grade PowerPoint engineering skill with template governance, increm
 
 Base PPTX tooling (unpack/pack/thumbnails/validation) lives at `../pptx/` — all those scripts are available here too.
 
+### Render-Time Helpers (USE THESE — they prevent the most common lint errors)
+
+`scripts/helpers.js` provides linter-aligned primitives. Use these instead of raw `addText` / `addShape` / `addTable` to eliminate `card_oversized`, `text_overflow`, `element_overlap`, and `content_zone_breach` errors.
+
+| Function | Purpose | Errors prevented |
+|----------|---------|------------------|
+| `measureText(str, fs, w)` | Estimate single textbox rendered height | `text_overflow` |
+| `measureCell(str, fs, w)` | Estimate table cell rendered height | `element_overlap` (table) |
+| `measureTable(rows, colW, fs)` | Total table h × safety multiplier (1.20) | `content_zone_breach` |
+| `placeWithGrid({contentBottom})` | Tracker with `canPlace` / `place` for non-overlap layouts | `element_overlap` (general) |
+| `safeTable(slide, rows, opts)` | Auto-shrinks fontSize until table fits inside `contentBottom`; respects callout zone | `element_overlap` (callout vs table), `content_zone_breach` |
+| `metricCard(slide, opts)` | Card with value/label/sublabel filling its grid slot | `card_oversized` |
+| `insightCard(slide, opts)` | Single rich-text card (title bold + body) so linter measures it as one box | `textbox_oversized`, `text_overflow` |
+
+**Import**:
+```javascript
+const path = require("path");
+const H = require(path.resolve(__dirname, "../../scripts/helpers.js"));
+// or via env var: const H = require(process.env.PRO_PPTX_DIR + "/scripts/helpers.js");
+```
+
+**Constants kept in sync with `scripts/linter.py`**: CJK char width 1.0/72 + ASCII 0.50/72; paragraph line-height 1.4×; table cell line-height 1.6×; textbox inset 0.20"; cell inset 0.16"; table safety 1.20×. Modify both files together when tuning.
+
+Reference example using helpers: [`examples/ai-hw-2035/build.js`](examples/ai-hw-2035/build.js).
+
 ---
 
 ## Scenario Detection

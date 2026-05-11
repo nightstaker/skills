@@ -312,44 +312,61 @@ tech-metric (4-block):
 
 ### Rendering Code Pattern (Anti-Overlap)
 
-The PptxGenJS rendering script MUST use a placement tracker to prevent overlap:
+**RECOMMENDED — use [`scripts/helpers.js`](../../scripts/helpers.js)** instead of hand-rolling placement / sizing logic. Helpers are tuned to match `scripts/linter.py` formulas exactly, so geometric errors disappear at build time.
 
 ```javascript
-// Grid-aware placement tracker — use on EVERY slide
-function createGrid() {
-  return { placed: [] };
-}
+const path = require("path");
+const H = require(path.resolve(__dirname, "../../scripts/helpers.js"));
+//   ── or ──
+//   const H = require(process.env.PRO_PPTX_DIR + "/scripts/helpers.js");
 
-function canPlace(grid, x, y, w, h) {
-  var contentBottom = 4.78;  // 5.15 if no callout
-  if (y + h > contentBottom + 0.01) return false;
-  if (x + w > 9.56) return false;
-  for (var i = 0; i < grid.placed.length; i++) {
-    var p = grid.placed[i];
-    if (x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y) {
-      return false;  // overlap detected
-    }
-  }
-  return true;
-}
+// Tables: auto-shrink fontSize so total h fits inside contentBottom (4.78 with
+// callout, 5.15 without). Eliminates the most common error: callout-vs-table overlap.
+H.safeTable(slide, rows, {
+  x: 0.45, y: 0.85, w: 9.10,
+  fontSize: 9, fontFace: "Microsoft YaHei", color: "1A1A1A",
+  contentBottom: 4.78,  // callout zone reserved 4.83-5.15
+});
 
-function place(grid, x, y, w, h) {
-  grid.placed.push({ x: x, y: y, w: w, h: h });
-}
+// Metric cards: card hugs grid slot via auto-filled value/label/sublabel.
+// Eliminates `card_oversized` by stuffing meaningful content into every slot.
+H.metricCard(slide, {
+  x, y, w, h,
+  value: "10 TB/s", label: "Aurora DAOS 聚合", sublabel: "1024 servers / 230 PB",
+  valueFontSize: 22, labelFontSize: 9, subFontSize: 7,
+  colors: C, fonts: F,
+});
 
-// Usage pattern:
-var g = createGrid();
-var x = 0.45, y = 1.00, w = 4.20, h = 2.60;
+// Insight cards: single rich-text (bold title + body) so linter measures it as
+// ONE element. Eliminates `textbox_oversized` and `text_overflow` for narrative cards.
+H.insightCard(slide, {
+  x, y, w, h,
+  num: "3", title: "Tier 0 收敛", body: "Hammerspace + VAST + BlueField + Rabbit ……",
+  titleFontSize: 11, bodyFontSize: 8,
+  colors: C, fonts: F,
+});
 
-// Shrink loop: reduce h and font until no overlap and within bounds
-var fontSize = 13;
-while (!canPlace(g, x, y, w, h) && fontSize >= 7) {
-  h *= 0.92;    // shrink height by 8%
-  fontSize -= 1;
+// Manual placement (when helpers don't fit): use the placement tracker.
+const grid = H.placeWithGrid({ contentBottom: 4.78 });
+if (grid.canPlace(x, y, w, h)) {
+  grid.place(x, y, w, h, "label");
+  slide.addText(content, { x, y, w, h, fontSize, ... });
 }
-place(g, x, y, w, h);
-slide.addText(content, { x: x, y: y, w: w, h: h, fontSize: fontSize, ... });
 ```
+
+**Available primitives** (see `scripts/helpers.js`):
+
+| Function | Use case |
+|----------|----------|
+| `measureText(str, fs, w)` | Compute "true rendered height" for a paragraph (matches linter) |
+| `measureCell(str, fs, w)` | Same for a table cell (cell has different inset / line-height) |
+| `measureTable(rows, colW, fs)` | Total table height × 1.20 safety |
+| `placeWithGrid(opts)` | `{ canPlace(x,y,w,h), place(x,y,w,h, label) }` tracker |
+| `safeTable(slide, rows, opts)` | One-line table that fits within `contentBottom` |
+| `metricCard(slide, opts)` | 3-segment card (value / label / sublabel) |
+| `insightCard(slide, opts)` | Single rich-text card (number badge + body) |
+
+**Fallback to raw API** is allowed when helpers don't fit — but you must implement equivalent measure/place logic yourself. The shrink protocol in §"Anti-Overlap Shrink Protocol" above is what `safeTable` already does internally.
 
 ---
 
